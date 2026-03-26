@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NZ Trip 2026</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
+        body { font-family: 'Noto Sans TC', sans-serif; background-color: #f3f4f6; -webkit-tap-highlight-color: transparent; }
+        .safe-area-bottom { padding-bottom: calc(env(safe-area-inset-bottom) + 4rem); }
+        .glass-card { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.3); }
+    </style>
+</head>
+<body>
+    <div id="app" class="max-w-md mx-auto min-h-screen relative shadow-2xl bg-gray-50">
+        
+        <header class="sticky top-0 z-20 bg-indigo-600 text-white p-4 shadow-md flex justify-between items-center">
+            <h1 class="text-xl font-bold tracking-wider">紐西蘭之行 2026</h1>
+            <div class="text-xs opacity-80">7 人團體</div>
+        </header>
+
+        <main class="p-4 safe-area-bottom">
+            
+            <div v-if="activeTab === 'itinerary'">
+                <div class="flex overflow-x-auto mb-4 pb-2 space-x-2 scrollbar-hide">
+                    <button v-for="(day, index) in itinerary" :key="index" 
+                        @click="currentDayIndex = index"
+                        :class="['px-4 py-2 rounded-full whitespace-nowrap text-sm transition', 
+                        currentDayIndex === index ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-gray-600 shadow-sm']">
+                        Day {{ index + 1 }} ({{ day.date.split('/')[1] }}/{{ day.date.split('/')[2] }})
+                    </button>
+                </div>
+
+                <div class="bg-white rounded-2xl p-6 shadow-sm min-h-[500px]">
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <h2 class="text-2xl font-bold text-gray-800">{{ itinerary[currentDayIndex].city }}</h2>
+                            <p class="text-indigo-500 font-medium">{{ itinerary[currentDayIndex].date }}</p>
+                        </div>
+                        <button @click="isEditing = !isEditing" class="text-gray-400 hover:text-indigo-600">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div v-for="(item, i) in itinerary[currentDayIndex].events" :key="i" class="relative pl-6 border-l-2 border-indigo-100">
+                            <div class="absolute -left-[9px] top-1 w-4 h-4 bg-indigo-600 rounded-full border-4 border-white"></div>
+                            <div class="flex justify-between">
+                                <span class="text-xs text-gray-400 font-mono">{{ item.time }}</span>
+                                <button v-if="isEditing" @click="removeEvent(i)" class="text-red-400 text-xs">刪除</button>
+                            </div>
+                            <p class="text-gray-700 mt-1">{{ item.desc }}</p>
+                        </div>
+                        
+                        <div v-if="isEditing" class="mt-4 p-4 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
+                            <input v-model="newEvent.time" placeholder="時間 (如 09:00)" class="w-full mb-2 p-2 rounded border text-sm">
+                            <input v-model="newEvent.desc" placeholder="內容" class="w-full mb-2 p-2 rounded border text-sm">
+                            <button @click="addEvent" class="w-full py-2 bg-indigo-500 text-white rounded-lg text-sm">+ 新增行程</button>
+                        </div>
+                    </div>
+
+                    <div v-if="itinerary[currentDayIndex].accommodation" class="mt-8 pt-6 border-t border-gray-100">
+                        <h3 class="text-sm font-bold text-gray-400 uppercase tracking-widest mb-3">住宿 & 餐廳</h3>
+                        <div class="flex items-center space-x-3 mb-2 text-gray-700">
+                            <i class="fas fa-hotel text-indigo-400 w-5"></i>
+                            <span class="text-sm">{{ itinerary[currentDayIndex].accommodation }}</span>
+                        </div>
+                        <div class="flex items-center space-x-3 text-gray-700">
+                            <i class="fas fa-utensils text-orange-400 w-5"></i>
+                            <span class="text-sm">{{ itinerary[currentDayIndex].restaurants }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div v-if="activeTab === 'split'">
+                <div class="bg-white rounded-2xl p-6 shadow-sm mb-6">
+                    <h2 class="text-xl font-bold mb-4">快速分帳</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm text-gray-500 mb-1">總金額 (NZD)</label>
+                            <input type="number" v-model="billAmount" class="w-full p-4 bg-gray-50 rounded-xl text-2xl font-bold focus:ring-2 focus:ring-indigo-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-500 mb-1">付款人</label>
+                            <select v-model="payer" class="w-full p-3 bg-gray-50 rounded-xl outline-none">
+                                <option v-for="m in members" :value="m">{{ m }}</option>
+                            </select>
+                        </div>
+                        <button @click="calculateSplit" class="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 active:scale-95 transition">
+                            計算分攤額
+                        </button>
+                    </div>
+                </div>
+
+                <div v-if="settlements.length > 0" class="bg-white rounded-2xl p-6 shadow-sm">
+                    <h3 class="font-bold mb-4 flex justify-between">
+                        <span>應付明細</span>
+                        <span class="text-indigo-600 text-sm">每人約 {{ (billAmount / 7).toFixed(2) }} NZD</span>
+                    </h3>
+                    <div class="space-y-3">
+                        <div v-for="s in settlements" class="flex items-center justify-between p-3 bg-indigo-50 rounded-lg">
+                            <span class="font-medium text-gray-700">{{ s.from }}</span>
+                            <div class="flex items-center text-indigo-600">
+                                <span class="text-xs mr-2">支付給 {{ s.to }}</span>
+                                <span class="font-bold">${{ s.amount }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div v-if="activeTab === 'map'" class="text-center py-10">
+                <div class="bg-white rounded-2xl p-8 shadow-sm">
+                    <i class="fas fa-map-marked-alt text-6xl text-indigo-200 mb-4"></i>
+                    <h2 class="text-xl font-bold mb-2">Google 地圖整合</h2>
+                    <p class="text-gray-500 mb-6">快速跳轉至紐西蘭導航</p>
+                    <div class="grid grid-cols-2 gap-4">
+                        <a :href="'https://www.google.com/maps/search/?api=1&query=' + itinerary[currentDayIndex].city" target="_blank" class="p-4 bg-gray-50 rounded-xl flex flex-col items-center">
+                            <i class="fas fa-location-arrow text-indigo-500 mb-2"></i>
+                            <span class="text-sm">當前城市</span>
+                        </a>
+                        <a href="https://www.google.com/maps/dir/?api=1&destination=Christchurch" target="_blank" class="p-4 bg-gray-50 rounded-xl flex flex-col items-center">
+                            <i class="fas fa-car text-green-500 mb-2"></i>
+                            <span class="text-sm">導航至下一站</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+        <nav class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t border-gray-100 flex justify-around items-center p-2 glass-card">
+            <button @click="activeTab = 'itinerary'" :class="['flex flex-col items-center p-2 w-full', activeTab === 'itinerary' ? 'text-indigo-600' : 'text-gray-400']">
+                <i class="fas fa-calendar-day text-xl"></i>
+                <span class="text-[10px] mt-1 font-medium">行程</span>
+            </button>
+            <button @click="activeTab = 'split'" :class="['flex flex-col items-center p-2 w-full', activeTab === 'split' ? 'text-indigo-600' : 'text-gray-400']">
+                <i class="fas fa-file-invoice-dollar text-xl"></i>
+                <span class="text-[10px] mt-1 font-medium">分帳</span>
+            </button>
+            <button @click="activeTab = 'map'" :class="['flex flex-col items-center p-2 w-full', activeTab === 'map' ? 'text-indigo-600' : 'text-gray-400']">
+                <i class="fas fa-map-marker-alt text-xl"></i>
+                <span class="text-[10px] mt-1 font-medium">地圖</span>
+            </button>
+        </nav>
+    </div>
+
+    <script>
+        const { createApp, ref } = Vue;
+
+        createApp({
+            setup() {
+                const activeTab = ref('itinerary');
+                const currentDayIndex = ref(0);
+                const isEditing = ref(false);
+                const members = ['彥廷', '明真', '健彰', '孟鈺', '銘義', '惟琳', '意揚'];
+                
+                // 分帳資料
+                const billAmount = ref(0);
+                const payer = ref('彥廷');
+                const settlements = ref([]);
+
+                const calculateSplit = () => {
+                    const share = (billAmount.value / 7).toFixed(2);
+                    settlements.value = members
+                        .filter(m => m !== payer.value)
+                        .map(m => ({ from: m, to: payer.value, amount: share }));
+                };
+
+                const newEvent = ref({ time: '', desc: '' });
+                const addEvent = () => {
+                    if(newEvent.value.time && newEvent.value.desc) {
+                        itinerary.value[currentDayIndex.value].events.push({...newEvent.value});
+                        newEvent.value = { time: '', desc: '' };
+                    }
+                };
+                const removeEvent = (index) => {
+                    itinerary.value[currentDayIndex.value].events.splice(index, 1);
+                };
+
+                const itinerary = ref([
+                    { date: '2026/04/01 (三)', city: 'TPE - HKG', events: [{time: '13:20', desc: '桃園機場起飛'}, {time: '21:05', desc: '香港轉機前往 AKL'}], accommodation: '機上', restaurants: '飛機餐' },
+                    { date: '2026/04/02 (四)', city: 'AKL - CHC', events: [{time: '16:10', desc: '抵達基督城'}, {time: '晚上', desc: '新攝政街逛街'}], accommodation: 'City Sanctuary on Kilmore', restaurants: 'Amazonita (推薦)' },
+                    { date: '2026/04/03 (五)', city: '凱庫拉', events: [{time: '11:15', desc: '賞鯨行程'}, {time: '下午', desc: 'Point Kean 海豹群觀賞'}], accommodation: 'City Sanctuary on Kilmore', restaurants: '當地海鮮料理' },
+                    { date: '2026/04/04 (六)', city: '蒂卡波湖', events: [{time: '早上', desc: '3hr drive Fairlie Bakehouse'}, {time: '晚上', desc: '觀星行程 (20:45-22:15)'}], accommodation: 'Lake Tekapo Fivestone Lodge', restaurants: 'The Greedy Cow Cafe' },
+                    { date: '2026/04/05 (日)', city: '庫克山', events: [{time: '早上', desc: '普卡基湖景點'}, {time: '下午', desc: 'Hooker Valley 直升機'}], accommodation: 'The Hermitage Hotel', restaurants: 'Mint Folk & Co' },
+                    { date: '2026/04/06 (一)', city: '但尼丁', events: [{time: '早上', desc: '冰山健行'}, {time: '晚上', desc: '鮑德溫街/火車站'}], accommodation: 'Dunedin Airbnb', restaurants: 'Emerson\'s Brewery' },
+                    { date: '2026/04/07 (二)', city: '但尼丁 - 蒂阿瑙', events: [{time: '09:00', desc: 'Tunnel Beach'}, {time: '14:30', desc: 'Wildlife Cruises'}], accommodation: 'Te Anau Luxury on Luxmore', restaurants: '當地特色餐飲' },
+                    { date: '2026/04/08 (三)', city: '米爾福德峽灣', events: [{time: '11:15', desc: 'Milford Sound Cruise'}, {time: '17:45', desc: '螢火蟲洞 (2hr)'}], accommodation: 'Te Anau Luxury on Luxmore', restaurants: '自備餐點/小鎮餐廳' },
+                    { date: '2026/04/09 (四)', city: '皇后鎮', events: [{time: '12:00', desc: '跳傘活動'}, {time: '下午', desc: '鹿園渡假村'}], accommodation: '皇后鎮住宿', restaurants: 'Fergburger (第一名漢堡)' },
+                    { date: '2026/04/10 (五)', city: '皇后鎮', events: [{time: '15:00', desc: 'TSS 蒸汽船行程'}, {time: '全天', desc: 'Glenorchy 景觀大道'}], accommodation: '皇后鎮住宿', restaurants: 'NEST 美景咖啡廳' },
+                    { date: '2026/04/11 (六)', city: '瓦納卡', events: [{time: '早上', desc: 'Wanaka Tree/Roys Peak'}, {time: '下午', desc: 'Rippon Vineyard'}], accommodation: '皇后鎮住宿', restaurants: 'Wolf Coffee Roasters' },
+                    { date: '2026/04/12 (日)', city: '皇后鎮 - 奧克蘭', events: [{time: '17:30', desc: 'ZQN-AKL 飛機'}, {time: '下午', desc: '格林諾奇快艇'}], accommodation: 'ibis Budget Auckland Airport', restaurants: '小鎮簡餐' },
+                    { date: '2026/04/13 (一)', city: 'AKL - TPE', events: [{time: '13:25', desc: '奧克蘭起飛至香港'}, {time: '22:50', desc: '香港轉機返回桃園'}], accommodation: '機上', restaurants: '飛機餐' },
+                    { date: '2026/04/14 (二)', city: '台灣', events: [{time: '00:35', desc: '平安抵達桃園機場'}], accommodation: 'Home', restaurants: '台灣早餐' }
+                ]);
+
+                return {
+                    activeTab, currentDayIndex, itinerary, isEditing, 
+                    newEvent, addEvent, removeEvent,
+                    members, billAmount, payer, settlements, calculateSplit
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
