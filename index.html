@@ -85,7 +85,7 @@
             <div class="space-y-3">
               <div>
                 <label class="text-xs font-bold text-gray-500">時間</label>
-                <input v-model="currentEventForm.time" type="text" placeholder="例如: 13:20 - 15:25 或 早上" class="w-full p-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-pastel-blue outline-none text-sm">
+                <input v-model="currentEventForm.time" type="text" placeholder="例如: 13:20 - 15:25" class="w-full p-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-pastel-blue outline-none text-sm">
               </div>
               <div>
                 <label class="text-xs font-bold text-gray-500">行程名稱 <span class="text-red-400">*</span></label>
@@ -101,7 +101,7 @@
               </div>
               <div>
                 <label class="text-xs font-bold text-gray-500">專屬備註 (選填)</label>
-                <textarea v-model="currentEventForm.note" placeholder="例如: 記得先線上預約、必買伴手禮..." class="w-full p-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-pastel-blue outline-none text-sm resize-none h-16"></textarea>
+                <textarea v-model="currentEventForm.note" placeholder="例如: 記得帶護照..." class="w-full p-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-pastel-blue outline-none text-sm resize-none h-16"></textarea>
               </div>
               <div>
                 <label class="text-xs font-bold text-gray-500">圖示代碼 (FontAwesome)</label>
@@ -123,7 +123,7 @@
         
         <div class="bg-pastel-pink bg-opacity-20 p-4 rounded-2xl mb-6 shadow-sm border border-pastel-pink">
           <input v-model="newExpense.name" type="text" placeholder="支出名目 (例如: 超市採買)" class="w-full mb-3 p-3 rounded-xl border border-white focus:outline-none focus:ring-2 focus:ring-pastel-pink">
-          <input v-model="newExpense.amount" type="number" placeholder="金額 (NZD)" class="w-full mb-3 p-3 rounded-xl border border-white focus:outline-none focus:ring-2 focus:ring-pastel-pink">
+          <input v-model="newExpense.amount" type="number" placeholder="總金額 (NZD)" class="w-full mb-3 p-3 rounded-xl border border-white focus:outline-none focus:ring-2 focus:ring-pastel-pink">
           
           <div class="mb-3">
             <label class="block text-sm font-bold text-gray-600 mb-1">付款人</label>
@@ -132,15 +132,36 @@
             </select>
           </div>
 
+          <div class="mb-2 flex space-x-4">
+            <label class="flex items-center space-x-2 cursor-pointer">
+              <input type="radio" v-model="newExpense.splitMode" value="equal" class="text-pastel-pink focus:ring-pastel-pink">
+              <span class="text-sm font-bold text-gray-700">平分 (均分)</span>
+            </label>
+            <label class="flex items-center space-x-2 cursor-pointer">
+              <input type="radio" v-model="newExpense.splitMode" value="unequal" class="text-pastel-pink focus:ring-pastel-pink">
+              <span class="text-sm font-bold text-gray-700">自訂金額 (不均分)</span>
+            </label>
+          </div>
+
           <div class="mb-3">
-            <label class="block text-sm font-bold text-gray-600 mb-1">分攤成員</label>
-            <div class="grid grid-cols-3 gap-2">
-              <label v-for="member in members" :key="member" class="flex items-center space-x-2 bg-white p-2 rounded-lg text-sm border border-transparent hover:border-pastel-pink cursor-pointer">
-                <input type="checkbox" :value="member" v-model="newExpense.splitters" class="rounded text-pastel-pink focus:ring-pastel-pink">
-                <span>{{ member }}</span>
+            <div class="flex justify-between items-center mb-1">
+              <label class="block text-sm font-bold text-gray-600">分攤成員</label>
+              <button v-if="newExpense.splitMode === 'equal'" @click="selectAllSplitters" class="text-xs text-pastel-blue font-bold hover:underline">全選 / 全不選</button>
+            </div>
+            
+            <div class="grid gap-2" :class="newExpense.splitMode === 'equal' ? 'grid-cols-3' : 'grid-cols-1'">
+              <label v-for="member in members" :key="member" class="flex items-center justify-between bg-white p-2 rounded-lg text-sm border border-transparent hover:border-pastel-pink cursor-pointer">
+                <div class="flex items-center space-x-2">
+                  <input type="checkbox" :value="member" v-model="newExpense.splitters" class="rounded text-pastel-pink focus:ring-pastel-pink">
+                  <span>{{ member }}</span>
+                </div>
+                <input v-if="newExpense.splitMode === 'unequal' && newExpense.splitters.includes(member)" 
+                       v-model.number="newExpense.customAmounts[member]" 
+                       type="number" placeholder="分攤多少" 
+                       class="w-24 p-1 pl-2 rounded border border-gray-200 focus:outline-none focus:border-pastel-pink text-xs"
+                       @click.stop>
               </label>
             </div>
-            <button @click="selectAllSplitters" class="text-xs text-pastel-blue mt-2 font-bold hover:underline">全選 / 全不選</button>
           </div>
           
           <button @click="addExpense" class="w-full bg-pastel-pink text-white font-bold py-3 rounded-xl shadow hover:bg-pink-400 transition-colors">新增這筆費用</button>
@@ -151,26 +172,32 @@
           <div v-for="(balance, member) in balances" :key="member" class="bg-white p-3 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
             <span class="font-bold">{{ member }}</span>
             <span :class="balance >= 0 ? 'text-pastel-green' : 'text-red-400'" class="font-bold">
-              {{ balance >= 0 ? '+' : '' }}{{ Math.round(balance) }}
+              {{ balance >= 0 ? '+' : '' }}{{ Math.round(balance * 100) / 100 }}
             </span>
           </div>
         </div>
 
         <h3 class="font-bold text-lg mb-3 border-b-2 border-gray-200 pb-1 text-gray-600">📜 支出明細</h3>
         <div class="space-y-3 mb-4">
-          <div v-if="expenses.length === 0" class="text-center text-gray-400 py-4 text-sm font-bold">
-            目前還沒有任何支出紀錄喔！
-          </div>
+          <div v-if="expenses.length === 0" class="text-center text-gray-400 py-4 text-sm font-bold">目前還沒有任何支出紀錄喔！</div>
           <div v-for="(exp, idx) in expenses" :key="idx" class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 relative pr-10">
             <div class="flex justify-between items-start mb-1">
               <p class="font-bold text-gray-700">{{ exp.name }}</p>
               <p class="font-bold text-pastel-pink text-lg">${{ exp.amount }}</p>
             </div>
             <p class="text-xs text-gray-500 mb-1"><span class="font-bold text-gray-600">付款：</span>{{ exp.payer }}</p>
-            <p class="text-xs text-gray-500"><span class="font-bold text-gray-600">分攤：</span>{{ exp.splitters.join(', ') }}</p>
-            <button @click="deleteExpense(idx)" class="absolute top-1/2 -translate-y-1/2 right-3 text-gray-300 hover:text-red-400 p-2">
-              <i class="fa-solid fa-trash-can"></i>
-            </button>
+            
+            <p class="text-xs text-gray-500">
+              <span class="font-bold text-gray-600">分攤 ({{ exp.splitMode === 'equal' ? '均分' : '不均分' }})：</span>
+              <span v-if="exp.splitMode === 'equal'">{{ exp.splitters.join(', ') }}</span>
+              <span v-else>
+                <span v-for="(s, i) in exp.splitters" :key="s">
+                  {{ s }}(${{ exp.customAmounts[s] || 0 }}){{ i < exp.splitters.length - 1 ? ', ' : '' }}
+                </span>
+              </span>
+            </p>
+
+            <button @click="deleteExpense(idx)" class="absolute top-1/2 -translate-y-1/2 right-3 text-gray-300 hover:text-red-400 p-2"><i class="fa-solid fa-trash-can"></i></button>
           </div>
         </div>
       </div>
@@ -182,8 +209,8 @@
             <i class="fa-solid fa-map-location-dot"></i>
           </div>
           <p class="font-bold text-gray-600">專屬導航中心</p>
-          <p class="text-sm text-gray-400 mt-2 mb-4">現在你可以在「行程」頁面直接為每個景點加入 Google Map 連結，點擊就會自動開啟地圖囉！</p>
-          <button @click="currentTab = 'itinerary'" class="px-4 py-2 bg-pastel-blue text-white rounded-full text-sm font-bold shadow">去新增地圖連結</button>
+          <p class="text-sm text-gray-400 mt-2 mb-4">景點導航已整合至「行程」頁籤中。點擊行程卡片上的 Google Map 按鈕即可開始導航！</p>
+          <button @click="currentTab = 'itinerary'" class="px-4 py-2 bg-pastel-blue text-white rounded-full text-sm font-bold shadow">查看行程導航</button>
         </div>
       </div>
 
@@ -215,132 +242,21 @@
         const editingEventIndex = ref(-1)
         const currentEventForm = ref({ time: '', name: '', desc: '', gmap: '', note: '', icon: 'fa-star' })
         
-        // 完整的 14 天行程資料
         const itinerary = ref([
-          {
-            date: '04/01', title: 'Day 1', cities: 'TPE ✈️ HKG',
-            events: [
-              { time: '13:20 - 15:25', name: '桃園機場起飛至香港', desc: 'TPE - HKG', gmap: '', note: '', icon: 'fa-plane-departure' },
-              { time: '21:05 - 12:50', name: '香港飛往奧克蘭', desc: 'HKG - AKL (週四抵達)', gmap: '', note: '', icon: 'fa-plane' }
-            ]
-          },
-          {
-            date: '04/02', title: 'Day 2', cities: 'AKL ✈️ CHC',
-            events: [
-              { time: '16:10 - 17:35', name: '國內線前往基督城', desc: 'AKL - CHC', gmap: '', note: '', icon: 'fa-plane-arrival' },
-              { time: '晚上', name: '新攝政街', desc: 'New Regent Street Precinct', gmap: '', note: '', icon: 'fa-moon' },
-              { time: '住宿', name: 'City Sancutuary on Kilmore', desc: '基督城', gmap: '', note: '', icon: 'fa-bed' },
-              { time: '餐廳候補', name: 'Unknown Chapter 等', desc: 'Coffee Roasters, Bohemian Bakery Cafe, Amazonita', gmap: '', note: '', icon: 'fa-utensils' }
-            ]
-          },
-          {
-            date: '04/03', title: 'Day 3', cities: '凱庫拉',
-            events: [
-              { time: '11:15', name: '賞鯨、海豚', desc: '', gmap: '', note: '', icon: 'fa-anchor' },
-              { time: '下午', name: 'Point Kean Viewpoint', desc: 'Kaikoura Seal, Colony', gmap: '', note: '', icon: 'fa-camera' },
-              { time: '晚餐', name: '吃海鮮', desc: '', gmap: '', note: '', icon: 'fa-fish' },
-              { time: '住宿', name: 'City Sancutuary on Kilmore', desc: '基督城', gmap: '', note: '', icon: 'fa-bed' }
-            ]
-          },
-          {
-            date: '04/04', title: 'Day 4', cities: '蒂卡波湖',
-            events: [
-              { time: '09:00 - 15:00', name: 'Fairlie Bakehouse Astro Cafe', desc: '3hr drive', gmap: '', note: '', icon: 'fa-car' },
-              { time: '午餐', name: 'The Greedy Cow Cafe', desc: '', gmap: '', note: '', icon: 'fa-burger' },
-              { time: '下午', name: '好牧羊人教堂', desc: 'The better batter Four Square', gmap: '', note: '', icon: 'fa-church' },
-              { time: '20:45 - 22:15', name: '觀星', desc: '', gmap: '', note: '', icon: 'fa-star' },
-              { time: '住宿', name: 'Lake Tekapo Fivestone Lodge', desc: '蒂卡波湖', gmap: '', note: '', icon: 'fa-bed' },
-              { time: '餐廳候補', name: 'The Greedy Cow Cafe', desc: '', gmap: '', note: '', icon: 'fa-utensils' }
-            ]
-          },
-          {
-            date: '04/05', title: 'Day 5', cities: '普卡基湖、庫克山',
-            events: [
-              { time: '早上', name: '普卡基湖觀景點', desc: 'Lake Pukaki view point, Peter\'s Lookout', gmap: '', note: '', icon: 'fa-mountain-sun' },
-              { time: '午餐', name: 'Alpine Salmon Shop', desc: '', gmap: '', note: '', icon: 'fa-fish' },
-              { time: '13:30', name: 'Hooker Valley Track 直升機', desc: '', gmap: '', note: '', icon: 'fa-helicopter' },
-              { time: '18:00', name: 'Buffet 晚餐', desc: '餐廳候補: Mint Folk & Co', gmap: '', note: '', icon: 'fa-utensils' },
-              { time: '15:00', name: 'Check in', desc: 'The Hermitage Hotel', gmap: '', note: '', icon: 'fa-bed' }
-            ]
-          },
-          {
-            date: '04/06', title: 'Day 6', cities: '庫克山、但尼丁',
-            events: [
-              { time: '早上', name: '冰山健行或直升機', desc: '如果前一天被取消', gmap: '', note: '', icon: 'fa-person-hiking' },
-              { time: '下午', name: '前往但尼丁', desc: '4hr drive (Lanarch Castle, Otago Farmer\'s Market, The Octagon)', gmap: '', note: '', icon: 'fa-car' },
-              { time: '晚上', name: '市區觀光', desc: '鮑德溫街、但尼丁火車站、第一教堂', gmap: '', note: '', icon: 'fa-building' },
-              { time: '住宿', name: '但尼丁 Dunedin', desc: '餐廳候補: Etrusco at the Savoy, Emerson\'s Brewery', gmap: '', note: '', icon: 'fa-bed' }
-            ]
-          },
-          {
-            date: '04/07', title: 'Day 7', cities: '但尼丁、蒂阿瑙',
-            events: [
-              { time: '09:00–17:00', name: 'Tunnel Beach', desc: '', gmap: '', note: '', icon: 'fa-water' },
-              { time: '12:00', name: 'Royal Albatross', desc: '皇家信天翁中心 (closes at 4PM)', gmap: '', note: '', icon: 'fa-crow' },
-              { time: '14:30', name: 'Wildlife Cruises', desc: '', gmap: '', note: '', icon: 'fa-ship' },
-              { time: '晚上', name: '前往蒂阿瑙', desc: '4hr drive', gmap: '', note: '', icon: 'fa-car' },
-              { time: '住宿', name: 'Te Anau Luxury on Luxmore', desc: '', gmap: '', note: '', icon: 'fa-bed' }
-            ]
-          },
-          {
-            date: '04/08', title: 'Day 8', cities: '米爾福德峽灣',
-            events: [
-              { time: '早上', name: '前往米爾福德峽灣', desc: '2hr drive', gmap: '', note: '', icon: 'fa-car' },
-              { time: '11:15', name: 'Milford Sound Cruise', desc: '米爾福德峽灣遊船', gmap: '', note: '', icon: 'fa-ship' },
-              { time: '下午', name: 'Mirror Lakes', desc: 'Eglinton Valley', gmap: '', note: '', icon: 'fa-camera' },
-              { time: '17:45', name: '螢火蟲洞 (2hr)', desc: '', gmap: '', note: '', icon: 'fa-bug' },
-              { time: '住宿', name: 'Te Anau Luxury on Luxmore', desc: '', gmap: '', note: '', icon: 'fa-bed' }
-            ]
-          },
-          {
-            date: '04/09', title: 'Day 9', cities: '皇后鎮',
-            events: [
-              { time: '12:00', name: '跳傘 (3hr)', desc: '2hr drive', gmap: '', note: '', icon: 'fa-parachute-box' },
-              { time: '下午', name: '鹿園', desc: '', gmap: '', note: '', icon: 'fa-deer' },
-              { time: '住宿', name: '皇后鎮', desc: '', gmap: '', note: '', icon: 'fa-bed' },
-              { time: '餐廳候補', name: '皇后鎮美食', desc: 'Amisfield Bistro, Anita gelato, Fergburger, Patagonia, Chocolates', gmap: '', note: '', icon: 'fa-burger' }
-            ]
-          },
-          {
-            date: '04/10', title: 'Day 10', cities: '皇后鎮',
-            events: [
-              { time: '全日', name: 'Glenorchy Scenic Drive', desc: 'Glenorchy-Queenstown Road', gmap: '', note: '', icon: 'fa-car' },
-              { time: '15:00', name: 'TSS 厄恩斯勞號', desc: 'Twin Screw Steamer Earnslaw 蒸汽船', gmap: '', note: '', icon: 'fa-ship' },
-              { time: '住宿', name: '皇后鎮', desc: '', gmap: '', note: '', icon: 'fa-bed' },
-              { time: '餐廳候補', name: 'NEST 美景咖啡廳', desc: '(07:00–11:00)(16:00–22:00)', gmap: '', note: '', icon: 'fa-mug-hot' }
-            ]
-          },
-          {
-            date: '04/11', title: 'Day 11', cities: '瓦納卡',
-            events: [
-              { time: '早上', name: 'Wanaka Tree Roys peak', desc: '', gmap: '', note: '', icon: 'fa-tree' },
-              { time: '行程', name: 'Rippon Vineyard', desc: '', gmap: '', note: '', icon: 'fa-wine-glass' },
-              { time: '下午', name: 'Crown Range Road Scenic Lookout', desc: '', gmap: '', note: '', icon: 'fa-camera' },
-              { time: '住宿', name: '皇后鎮', desc: '餐廳候補: Francesca Arrowtown Bakery Wolf Coffee Roasters', gmap: '', note: '', icon: 'fa-bed' }
-            ]
-          },
-          {
-            date: '04/12', title: 'Day 12', cities: '皇后鎮',
-            events: [
-              { time: '早上', name: '箭鎮、格林諾奇', desc: '', gmap: '', note: '', icon: 'fa-house' },
-              { time: '行程', name: 'Glenorchy Wharf', desc: 'Glenorchy Animal Experience shotover (快艇)', gmap: '', note: '', icon: 'fa-water' },
-              { time: '17:30 - 19:20', name: '飛往奧克蘭', desc: 'ZQN - AKL', gmap: '', note: '', icon: 'fa-plane' },
-              { time: '住宿', name: 'ibis Budget Auckland Airport', desc: '奧克蘭', gmap: '', note: '', icon: 'fa-bed' }
-            ]
-          },
-          {
-            date: '04/13', title: 'Day 13', cities: 'AKL、HKG、TPE',
-            events: [
-              { time: '13:25 - 21:05', name: '飛往香港', desc: 'AKL - HKG', gmap: '', note: '', icon: 'fa-plane-departure' },
-              { time: '22:50 - 00:35(+1)', name: '飛往台灣', desc: 'HKG - TPE', gmap: '', note: '', icon: 'fa-plane' }
-            ]
-          },
-          {
-            date: '04/14', title: 'Day 14', cities: 'TPE',
-            events: [
-              { time: '00:35', name: '抵達台灣', desc: '結束美好旅程', gmap: '', note: '', icon: 'fa-house-chimney' }
-            ]
-          }
+          { date: '04/01', title: 'Day 1', cities: 'TPE ✈️ HKG', events: [ { time: '13:20 - 15:25', name: '桃園機場起飛至香港', desc: 'TPE - HKG', gmap: 'https://www.google.com/maps/search/?api=1&query=桃園國際機場', note: '', icon: 'fa-plane-departure' }, { time: '21:05 - 12:50', name: '香港飛往奧克蘭', desc: 'HKG - AKL (週四抵達)', gmap: 'https://www.google.com/maps/search/?api=1&query=香港國際機場', note: '', icon: 'fa-plane' } ] },
+          { date: '04/02', title: 'Day 2', cities: 'AKL ✈️ CHC', events: [ { time: '抵達奧克蘭', name: '奧克蘭機場', desc: '', gmap: 'https://www.google.com/maps/search/?api=1&query=奧克蘭機場', note: '', icon: 'fa-plane-arrival' }, { time: '16:10 - 17:35', name: '國內線前往基督城', desc: 'AKL - CHC', gmap: 'https://www.google.com/maps/search/?api=1&query=基督城機場', note: '', icon: 'fa-plane-arrival' }, { time: '晚上', name: '新攝政街', desc: 'New Regent Street Precinct', gmap: 'https://www.google.com/maps/search/?api=1&query=New+Regent+Street', note: '', icon: 'fa-moon' }, { time: '住宿', name: 'City Sanctuary on Kilmore', desc: '基督城', gmap: 'https://www.google.com/maps/search/?api=1&query=City+Sanctuary+on+Kilmore', note: '', icon: 'fa-bed' }, { time: '餐廳候補', name: 'Unknown Chapter 等', desc: 'Coffee Roasters, Bohemian Bakery Cafe, Amazonita', gmap: '', note: '', icon: 'fa-utensils' } ] },
+          { date: '04/03', title: 'Day 3', cities: '凱庫拉', events: [ { time: '11:15', name: '賞鯨、海豚', desc: '', gmap: 'https://www.google.com/maps/search/?api=1&query=Whale+Watch+Kaikoura', note: '', icon: 'fa-anchor' }, { time: '下午', name: 'Point Kean Viewpoint', desc: 'Kaikoura Seal Colony', gmap: 'https://www.google.com/maps/search/?api=1&query=Point+Kean+Viewpoint', note: '', icon: 'fa-camera' }, { time: '下午', name: 'Kaikoura Seal Colony', desc: '', gmap: 'https://www.google.com/maps/search/?api=1&query=Kaikoura+Seal+Colony', note: '', icon: 'fa-camera' }, { time: '晚餐', name: '吃海鮮', desc: '', gmap: '', note: '', icon: 'fa-fish' }, { time: '住宿', name: 'City Sanctuary on Kilmore', desc: '基督城', gmap: 'https://www.google.com/maps/search/?api=1&query=City+Sanctuary+on+Kilmore', note: '', icon: 'fa-bed' } ] },
+          { date: '04/04', title: 'Day 4', cities: '蒂卡波湖', events: [ { time: '09:00 - 15:00', name: 'Fairlie Bakehouse', desc: '3hr drive', gmap: 'https://www.google.com/maps/search/?api=1&query=Fairlie+Bakehouse', note: '', icon: 'fa-car' }, { time: '咖啡廳', name: 'Astro Cafe', desc: '', gmap: 'https://www.google.com/maps/search/?api=1&query=Astro+Cafe+Tekapo', note: '', icon: 'fa-mug-hot' }, { time: '午餐', name: 'The Greedy Cow Cafe', desc: '', gmap: '', note: '', icon: 'fa-burger' }, { time: '下午', name: '好牧羊人教堂', desc: '', gmap: 'https://www.google.com/maps/search/?api=1&query=Church+of+the+Good+Shepherd', note: '', icon: 'fa-church' }, { time: '點心', name: 'The Better Batter', desc: '炸魚薯條', gmap: 'https://www.google.com/maps/search/?api=1&query=The+Better+Batter+Tekapo', note: '', icon: 'fa-fish' }, { time: '採買', name: 'Four Square Tekapo', desc: '當地超市', gmap: 'https://www.google.com/maps/search/?api=1&query=Four+Square+Tekapo', note: '', icon: 'fa-cart-shopping' }, { time: '20:45 - 22:15', name: '觀星', desc: '', gmap: '', note: '', icon: 'fa-star' }, { time: '住宿', name: 'Fivestone Lodge', desc: '蒂卡波湖', gmap: 'https://www.google.com/maps/search/?api=1&query=Fivestone+Lodge', note: '', icon: 'fa-bed' } ] },
+          { date: '04/05', title: 'Day 5', cities: '普卡基湖、庫克山', events: [ { time: '早上', name: '普卡基湖觀景點', desc: 'Lake Pukaki', gmap: 'https://www.google.com/maps/search/?api=1&query=Lake+Pukaki', note: '', icon: 'fa-mountain-sun' }, { time: '景點', name: 'Peter\'s Lookout', desc: '', gmap: 'https://www.google.com/maps/search/?api=1&query=Peter%27s+Lookout', note: '', icon: 'fa-camera' }, { time: '午餐', name: 'Alpine Salmon Shop', desc: '', gmap: 'https://www.google.com/maps/search/?api=1&query=Alpine+Salmon+Shop', note: '', icon: 'fa-fish' }, { time: '13:30', name: 'Hooker Valley Track', desc: '健行或直升機', gmap: 'https://www.google.com/maps/search/?api=1&query=Hooker+Valley+Track', note: '', icon: 'fa-person-hiking' }, { time: '18:00', name: 'Buffet 晚餐', desc: '餐廳候補: Mint Folk & Co', gmap: '', note: '', icon: 'fa-utensils' }, { time: '15:00', name: 'Check in', desc: 'The Hermitage Hotel', gmap: 'https://www.google.com/maps/search/?api=1&query=The+Hermitage+Hotel+Mt+Cook', note: '', icon: 'fa-bed' } ] },
+          { date: '04/06', title: 'Day 6', cities: '庫克山、但尼丁', events: [ { time: '早上', name: '冰山健行或直升機', desc: '如果前一天被取消', gmap: '', note: '', icon: 'fa-person-hiking' }, { time: '下午', name: '前往但尼丁', desc: '4hr drive', gmap: '', note: '', icon: 'fa-car' }, { time: '晚上', name: '鮑德溫街', desc: '世界最陡街道', gmap: 'https://www.google.com/maps/search/?api=1&query=Baldwin+Street+Dunedin', note: '', icon: 'fa-road' }, { time: '晚上', name: '但尼丁火車站', desc: '', gmap: 'https://www.google.com/maps/search/?api=1&query=Dunedin+Railway+Station', note: '', icon: 'fa-train' }, { time: '晚上', name: '第一教堂', desc: '', gmap: 'https://www.google.com/maps/search/?api=1&query=First+Church+of+Otago', note: '', icon: 'fa-church' }, { time: '住宿', name: '但尼丁 Dunedin', desc: '餐廳候補: Etrusco, Emerson\'s Brewery', gmap: '', note: '', icon: 'fa-bed' } ] },
+          { date: '04/07', title: 'Day 7', cities: '但尼丁、蒂阿瑙', events: [ { time: '09:00–17:00', name: 'Tunnel Beach', desc: '隧道海灘步道', gmap: 'https://www.google.com/maps/search/?api=1&query=Tunnel+Beach', note: '', icon: 'fa-water' }, { time: '12:00', name: 'Royal Albatross Centre', desc: '皇家信天翁中心 (closes at 4PM)', gmap: 'https://www.google.com/maps/search/?api=1&query=Royal+Albatross+Centre', note: '', icon: 'fa-crow' }, { time: '14:30', name: 'Monarch Wildlife Cruises', desc: '生態遊船', gmap: 'https://www.google.com/maps/search/?api=1&query=Monarch+Wildlife+Cruises', note: '', icon: 'fa-ship' }, { time: '晚上', name: '前往蒂阿瑙', desc: '4hr drive', gmap: '', note: '', icon: 'fa-car' }, { time: '住宿', name: 'Luxury on Luxmore', desc: '蒂阿瑙', gmap: 'https://www.google.com/maps/search/?api=1&query=Luxury+on+Luxmore+Te+Anau', note: '', icon: 'fa-bed' } ] },
+          { date: '04/08', title: 'Day 8', cities: '米爾福德峽灣', events: [ { time: '早上', name: '前往米爾福德峽灣', desc: '2hr drive', gmap: '', note: '', icon: 'fa-car' }, { time: '11:15', name: 'Milford Sound Cruise', desc: '米爾福德峽灣遊船', gmap: 'https://www.google.com/maps/search/?api=1&query=Milford+Sound+Cruise+Terminal', note: '', icon: 'fa-ship' }, { time: '下午', name: 'Mirror Lakes', desc: '鏡湖', gmap: 'https://www.google.com/maps/search/?api=1&query=Mirror+Lakes+New+Zealand', note: '', icon: 'fa-camera' }, { time: '下午', name: 'Eglinton Valley', desc: '埃格林頓山谷', gmap: 'https://www.google.com/maps/search/?api=1&query=Eglinton+Valley', note: '', icon: 'fa-mountain' }, { time: '17:45', name: 'Te Anau Glowworm Caves', desc: '螢火蟲洞 (2hr)', gmap: 'https://www.google.com/maps/search/?api=1&query=Te+Anau+Glowworm+Caves', note: '', icon: 'fa-bug' }, { time: '住宿', name: 'Luxury on Luxmore', desc: '蒂阿瑙', gmap: 'https://www.google.com/maps/search/?api=1&query=Luxury+on+Luxmore+Te+Anau', note: '', icon: 'fa-bed' } ] },
+          { date: '04/09', title: 'Day 9', cities: '皇后鎮', events: [ { time: '12:00', name: 'NZONE Skydive', desc: '跳傘 (3hr)', gmap: 'https://www.google.com/maps/search/?api=1&query=NZONE+Skydive+Queenstown', note: '', icon: 'fa-parachute-box' }, { time: '下午', name: '鹿園 Deer Park Heights', desc: '', gmap: 'https://www.google.com/maps/search/?api=1&query=Deer+Park+Heights', note: '', icon: 'fa-deer' }, { time: '住宿', name: '皇后鎮', desc: '', gmap: '', note: '', icon: 'fa-bed' }, { time: '餐廳候補', name: '皇后鎮美食', desc: 'Amisfield Bistro, Anita gelato, Fergburger, Patagonia, Chocolates', gmap: '', note: '', icon: 'fa-burger' } ] },
+          { date: '04/10', title: 'Day 10', cities: '皇后鎮', events: [ { time: '全日', name: 'Glenorchy Scenic Drive', desc: 'Glenorchy-Queenstown Road', gmap: '', note: '', icon: 'fa-car' }, { time: '15:00', name: 'TSS Earnslaw 蒸汽船', desc: 'TSS 厄恩斯勞號', gmap: 'https://www.google.com/maps/search/?api=1&query=TSS+Earnslaw', note: '', icon: 'fa-ship' }, { time: '景點', name: 'Skyline Queenstown', desc: '纜車與 Luge', gmap: 'https://www.google.com/maps/search/?api=1&query=Skyline+Queenstown', note: '', icon: 'fa-cable-car' }, { time: '住宿', name: '皇后鎮', desc: '', gmap: '', note: '', icon: 'fa-bed' }, { time: '餐廳候補', name: 'NEST 美景咖啡廳', desc: '(07:00–11:00)(16:00–22:00)', gmap: '', note: '', icon: 'fa-mug-hot' } ] },
+          { date: '04/11', title: 'Day 11', cities: '瓦納卡', events: [ { time: '早上', name: 'That Wanaka Tree', desc: '瓦納卡樹', gmap: 'https://www.google.com/maps/search/?api=1&query=That+Wanaka+Tree', note: '', icon: 'fa-tree' }, { time: '早上', name: 'Roys Peak Track', desc: '健行步道', gmap: 'https://www.google.com/maps/search/?api=1&query=Roys+Peak+Track', note: '', icon: 'fa-person-hiking' }, { time: '行程', name: 'Rippon Vineyard', desc: '', gmap: '', note: '', icon: 'fa-wine-glass' }, { time: '下午', name: 'Crown Range Road Scenic Lookout', desc: '皇冠山脈景觀台', gmap: 'https://www.google.com/maps/search/?api=1&query=Crown+Range+Road+Scenic+Lookout', note: '', icon: 'fa-camera' }, { time: '住宿', name: '皇后鎮', desc: '餐廳候補: Francesca Arrowtown Bakery Wolf Coffee Roasters', gmap: '', note: '', icon: 'fa-bed' } ] },
+          { date: '04/12', title: 'Day 12', cities: '皇后鎮', events: [ { time: '早上', name: '箭鎮 (Arrowtown)', desc: '', gmap: 'https://www.google.com/maps/search/?api=1&query=Arrowtown', note: '', icon: 'fa-house' }, { time: '早上', name: '格林諾奇 (Glenorchy)', desc: '', gmap: 'https://www.google.com/maps/search/?api=1&query=Glenorchy', note: '', icon: 'fa-tree' }, { time: '行程', name: 'Glenorchy Wharf', desc: 'Glenorchy Animal Experience shotover (快艇)', gmap: '', note: '', icon: 'fa-water' }, { time: '17:30 - 19:20', name: '飛往奧克蘭', desc: 'ZQN - AKL', gmap: '', note: '', icon: 'fa-plane' }, { time: '住宿', name: 'ibis budget Auckland Airport', desc: '奧克蘭', gmap: 'https://www.google.com/maps/search/?api=1&query=ibis+budget+Auckland+Airport', note: '', icon: 'fa-bed' } ] },
+          { date: '04/13', title: 'Day 13', cities: 'AKL、HKG、TPE', events: [ { time: '13:25 - 21:05', name: '飛往香港', desc: 'AKL - HKG', gmap: '', note: '', icon: 'fa-plane-departure' }, { time: '22:50 - 00:35(+1)', name: '飛往台灣', desc: 'HKG - TPE', gmap: '', note: '', icon: 'fa-plane' } ] },
+          { date: '04/14', title: 'Day 14', cities: 'TPE', events: [ { time: '00:35', name: '抵達台灣', desc: '結束美好旅程', gmap: '', note: '', icon: 'fa-house-chimney' } ] }
         ])
 
         const currentDayData = computed(() => itinerary.value.find(d => d.date === selectedDay.value))
@@ -359,7 +275,6 @@
 
         const saveEvent = () => {
           if (!currentEventForm.value.name) return alert('行程名稱一定要填寫喔！')
-          
           if (editingEventIndex.value === -1) {
             currentDayData.value.events.push({ ...currentEventForm.value })
           } else {
@@ -375,8 +290,9 @@
           }
         }
 
+        // --- 記帳資料升級：加入 mode 與 customAmounts ---
         const expenses = ref([])
-        const newExpense = ref({ name: '', amount: null, payer: '彥廷', splitters: [] })
+        const newExpense = ref({ name: '', amount: null, payer: '彥廷', splitMode: 'equal', splitters: [], customAmounts: {} })
 
         const selectAllSplitters = () => {
           if (newExpense.value.splitters.length === members.value.length) {
@@ -387,9 +303,29 @@
         }
 
         const addExpense = () => {
-          if (!newExpense.value.name || !newExpense.value.amount || newExpense.value.splitters.length === 0) return alert('請填寫完整資訊並選擇分攤成員！');
-          expenses.value.unshift({ ...newExpense.value, amount: Number(newExpense.value.amount) });
-          newExpense.value = { name: '', amount: null, payer: '彥廷', splitters: [] };
+          if (!newExpense.value.name || !newExpense.value.amount || newExpense.value.splitters.length === 0) {
+            return alert('請填寫完整資訊並選擇至少一位分攤成員！');
+          }
+
+          let expenseRecord = { 
+            ...newExpense.value, 
+            amount: Number(newExpense.value.amount),
+            customAmounts: { ...newExpense.value.customAmounts }
+          };
+
+          // 防呆驗證：不均分模式下的金額加總必須等於總額
+          if (expenseRecord.splitMode === 'unequal') {
+            let sum = 0;
+            expenseRecord.splitters.forEach(s => {
+              sum += (Number(expenseRecord.customAmounts[s]) || 0);
+            });
+            if (sum !== expenseRecord.amount) {
+              return alert(`分攤金額加總 (${sum}) 不等於總金額 (${expenseRecord.amount}) 喔！請再檢查一下。`);
+            }
+          }
+
+          expenses.value.unshift(expenseRecord);
+          newExpense.value = { name: '', amount: null, payer: '彥廷', splitMode: 'equal', splitters: [], customAmounts: {} };
         }
 
         const deleteExpense = (index) => {
@@ -398,13 +334,23 @@
           }
         }
 
+        // --- 結算總覽重新計算 ---
         const balances = computed(() => {
           let b = {};
           members.value.forEach(m => b[m] = 0);
           expenses.value.forEach(ex => {
-            b[ex.payer] += ex.amount;
-            const splitAmount = ex.amount / ex.splitters.length;
-            ex.splitters.forEach(s => b[s] -= splitAmount);
+            b[ex.payer] += ex.amount; // 付款人獲得債權
+            
+            if (ex.splitMode === 'equal') {
+              // 均分邏輯
+              const splitAmount = ex.amount / ex.splitters.length;
+              ex.splitters.forEach(s => b[s] -= splitAmount);
+            } else {
+              // 不均分邏輯
+              ex.splitters.forEach(s => {
+                b[s] -= (Number(ex.customAmounts[s]) || 0);
+              });
+            }
           });
           return b;
         })
